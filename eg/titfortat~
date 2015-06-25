@@ -1,0 +1,52 @@
+{'modules': [
+	{'ctrl': [0],
+	'init': [
+		"T -> x0' := T", 
+		"T -> x0' := F"
+	],
+	'update': [
+		"T -> x0' := T", 
+		"T -> x0' := F"
+	],
+	},
+	{'ctrl': [1],
+	'init': [
+		"T -> x1' := T", 
+		"T -> x1' := F"
+	],
+	'update': [
+		"T -> x1' := T", 
+		"T -> x1' := F"
+	],
+	}
+],
+
+'goals': ["AG AF (and x0 !x1)",  "AG AF (and !x0 x1)"],
+
+'strategies':[
+	{'ctrl': [0],
+	'init': [
+		"T -> x0' := T", 
+		"T -> x0' := F", 
+	],
+	'update': [
+		"and x0 !x2 -> x0' := F",
+		"and !x0 x2 -> x0' := T", 
+		"or (and x0 x2) (and !x0 !x2) -> x0' := F",
+		"or (and x0 x2) (and !x0 !x2) -> x0' := T",
+	],
+	},
+	{'ctrl': [2],
+	'init': [
+		"T -> x2' := T"
+		"T -> x0' := F", 
+	],
+	'update': [
+		"and x0 !x2 -> x2' := T",
+		"and !x0 x2 -> x2' := F", 
+		"or (and x0 x2) (and !x0 !x2) -> x2' := F",
+		"or (and x0 x2) (and !x0 !x2) -> x2' := T",
+	],
+	}
+]
+}

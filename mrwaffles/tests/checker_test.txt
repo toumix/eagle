@@ -1,0 +1,170 @@
+>>> from checker import *
+>>> g = PredicatedGraph()
+>>> g.add_edge(1,2)
+
+# a small inner loop
+>>> g.add_edge(2,3)
+>>> g.add_edge(3,2)
+>>> g.add_edge(3,4)
+
+# an outer loop
+>>> g.add_edge(4,2)
+
+# a diamond
+>>> g.add_edge(4,5)
+>>> g.add_edge(4,6)
+>>> g.add_edge(5,7)
+>>> g.add_edge(6,7)
+
+# an 'unreachable' node
+>>> g.add_edge(8,6)
+
+# an 'dead end'
+>>> g.add_edge(5,9)
+
+# a disconnected node
+>>> g.add_node(42)
+
+# adding an always true predicate
+>>> for n in g.nodes():
+...   g.add_predicate(n, 'always')
+... 
+
+# adding 'even' and 'odd' predicates
+>>> for n in g.nodes():
+...   if n % 2 == 0:
+...     g.add_predicate(n, 'even')
+...   else:
+...     g.add_predicate(n, 'odd')
+
+>>> g.add_predicate(1, 'entrypoint')
+>>> g.add_predicate(7, 'exit')
+>>> g.add_predicate(4, 'finite')
+>>> g.add_predicate(5, 'finite')
+>>> g.add_predicate(9, 'finite')
+>>> g.add_predicate(6, 'finite')
+>>> g.add_predicate(7, 'finite')
+>>> g.add_predicate(1, 'infinite')
+>>> g.add_predicate(2, 'infinite')
+>>> g.add_predicate(3, 'infinite')
+>>> g.add_predicate(42, 'alone')
+
+###############
+# testing fundamental operators: EX, EU, EG
+>>> g.check('EX even')
+set([8, 1, 3, 4])
+>>> g.check('EX odd')
+set([2, 4, 5, 6])
+
+# returns all even nodes and odd nodes that lead to an even
+# that is, everything except 5, 7 and 9
+>>> g.check('EU odd even')
+set([1, 2, 3, 4, 6, 8, 42])
+
+# returns all odd nodes and even nodes that lead to an odd
+# that is, everything except 42
+>>> g.check('EU even odd')
+set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+# every node that leads to the exit (everything except 42 and 9, the dead end)
+>>> g.check('EU always exit')
+set([1, 2, 3, 4, 5, 6, 7, 8])
+
+# you wanted to get [1, 2, 3, 4, 5, 6, 7, 8, 9, 42] ?
+# unfortunately, the standard EG operator only works on infinite paths
+# hence the EGi notation
+>>> g.check('EGi always')
+set([1, 2, 3, 4])
+
+# we implicitly use EG to work only on finite paths
+>>> g.check('EG always')
+set([1, 2, 3, 4, 5, 6, 7, 8, 9, 42])
+
+# and I mean, *only* on finite paths
+>>> g.check('EG infinite')
+set([])
+
+# this is expected
+>>> g.check('EGi infinite')
+set([1, 2, 3])
+
+# want some more ?
+>>> g.check('EG finite')
+set([9, 4, 5, 6, 7])
+>>> g.check('EGi finite')
+set([])
+
+# tricky:
+# "there is an infinite path that does not lead to the exit"
+>>> g.check('EGi !exit')
+set([1, 2, 3, 4])
+
+# "there is no infinite path that does not lead to the exit"
+# = "there is no infinite path, or there is an infinite path that leads to the exit"
+# = "AF exit" in traditional CTL (how counter-intuitive is that to have 5 in "AF exit" ?)
+>>> g.check('!EGi !exit')
+set([5, 6, 7, 8, 9, 42])
+
+# using the finite EG, the result conforms to the intuition:
+>>> g.check('!EG !exit')
+set([8, 6, 7])
+>>> g.check('AF exit')
+set([8, 6, 7])
+
+# another tricky point: the empty path is a valid path for EG, but not for EGi:
+>>> g.check('EG alone')
+set([42])
+>>> g.check('EGi alone')
+set([])
+
+# by comparison, AG works naturally on finite paths:
+>>> g.check('AG finite')
+set([9, 5, 6, 7])
+
+###############
+# testing the other operators
+
+# everything that can lead to the exit
+>>> g.check('EF exit')
+set([1, 2, 3, 4, 5, 6, 7, 8])
+
+# everything that can lead to the infinite loop
+>>> g.check('EF infinite')
+set([1, 2, 3, 4])
+
+# already works nicely on the empty path
+>>> g.check('EF alone')
+set([42])
+
+# what always leads to the exit
+>>> g.check('AF exit')
+set([8, 6, 7])
+
+# wherever I go, I know I will reach an even node
+>>> g.check('AF even')
+set([1, 2, 3, 4, 6, 8, 42])
+
+>>> g.check('AX always')
+set([1, 2, 3, 4, 5, 6, 7, 8, 9, 42])
+
+# if there are successors, they are all odd
+>>> g.check(AX('odd'))
+set([2, 5, 6, 7, 9, 42])
+
+# if there are successors, they are all even
+>>> g.check(AX('even'))
+set([1, 3, 7, 8, 9, 42])
+
+>>> g.check('AU infinite even')
+set([1, 2, 3, 4, 6, 8, 42])
+
+>>> g.check('AU always alone')
+set([42])
+
+# this should be the same as 'AF finite'
+>>> g.check('AU always finite')
+set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+>>> g.check('AF finite')
+set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+# and, or... ?

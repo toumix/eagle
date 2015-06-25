@@ -1,0 +1,19 @@
+>>> from ctl import *
+>>> f = CTL('x')
+>>> f.substitute({'x':'pouet'})
+['pouet']
+>>> f.substitute({'y':'pouet'})
+['x']
+
+>>> f = CTL('f(x)')
+>>> f.substitute({'x':'pouet'})
+['f', ['pouet']]
+>>> f.substitute({'y':'pouet'})
+['f', ['x']]
+
+>>> f = CTL('AG f(pouet, y)')
+>>> f.substitute({'pouet': 'lol'}) # pouet is not a freevar, lol!
+['AG', ['f', ['pouet'], ['y']]]
+>>> f.substitute({'pouet': 'lol', 'y': 'heyho'})
+['AG', ['f', ['pouet'], ['heyho']]]
+

@@ -1,0 +1,21 @@
+{
+'modules': [
+	{'ctrl': [0],
+	'init': [
+		"T -> x0' := T",
+		"T -> x0' := F"],
+	'update': [
+		"!x0 -> x0' := T",
+		"T -> x0' := !x0"]
+	}],
+
+'goals': ["!x0"],
+
+'strategies': [
+	{'ctrl': [0],
+	'init': [
+		"T -> x0' := T"],
+	'update': [
+		"T -> x0' := !x0"]
+	}],
+}

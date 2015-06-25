@@ -1,0 +1,21 @@
+{
+modules: [
+	{'ctrl': [0, 1],
+	'init': [
+		"T -> x0 := T, x1 := F",
+		"T -> x0 := F, x1 := T"]
+	'update': [
+		"(and x0 !x1) -> x0 := F, x1 := T",
+		"(and !x0 x1) -> x0 := x1, x1 := x0"]
+	}],
+goals: ["x0"],
+strategies: [
+	{'ctrl': [0, 1],
+	'init': [
+		"T -> x0 := T, x1 := F",
+		"T -> x0 := F, x1 := T"]
+	'update': [
+		"(and x0 !x1) -> x0 := F, x1 := T",
+		"(and !x0 x1) -> x0 := x1, x1 := x0"]
+	}]
+}

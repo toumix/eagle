@@ -1,0 +1,61 @@
+>>> from ctl import *
+
+# matching atomics
+>>> atomic = CTL('f')
+>>> atomic << '_'
+True
+>>> atomic << 'f'
+True
+>>> atomic << 'x'
+True
+>>> atomic << 'pouet'
+False
+
+# matching terms
+>>> term = CTL('f(x)')
+>>> term << '_'
+True
+>>> term << 'f(_)'
+True
+>>> term << 'f(x)'
+True
+>>> term << 'f(y)'
+True
+
+# this matches because there is no difference between '_ pouet' and '_(pouet)'
+# is this a problem ?
+>>> term << '_ pouet'
+True
+
+>>> term << 'f(pouet)'
+False
+>>> term << 'f(a, b)'
+False
+>>> term << 'f(x, b)'
+False
+>>> term << 'f(x, _)'
+False
+
+>>> nestedterm = CTL('f(x, g(y,z))')
+>>> nestedterm
+['f', ['x'], ['g', ['y'], ['z']]]
+>>> nestedterm << '_'
+True
+>>> nestedterm << 'f(x, y)'
+False
+>>> nestedterm << 'f(x, _)'
+True
+>>> nestedterm << 'f(_, _)'
+True
+>>> nestedterm << 'f(a, g(b, c))'
+True
+>>> nestedterm << 'f(a, g(_, _))'
+True
+>>> nestedterm = CTL('f(x, g(spam, eggs))')
+>>> nestedterm << 'f(a, g(b, c))'
+True
+>>> nestedterm << 'f(a, g(spam, _))'
+True
+>>> nestedterm << 'f(a, g(spam, pouet))'
+False
+

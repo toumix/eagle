@@ -1,0 +1,96 @@
+>>> from ctl import *
+>>> CTL('f')
+['f']
+>>> CTL('f(x)')
+['f', ['x']]
+>>> CTL('f (x)')
+['f', ['x']]
+>>> CTL('f(x,y)')
+['f', ['x'], ['y']]
+>>> CTL('f(x, y)')
+['f', ['x'], ['y']]
+>>> CTL('f( x,y   )')
+['f', ['x'], ['y']]
+>>> CTL('!f(x)')
+['!', ['f', ['x']]]
+>>> CTL('! f(x)')
+['!', ['f', ['x']]]
+>>> CTL('! f( x,y)')
+['!', ['f', ['x'], ['y']]]
+>>> CTL('and f( x,y) g')
+['and', ['f', ['x'], ['y']], ['g']]
+>>> CTL('<-EU true f')
+['<-EU', ['true'], ['f']]
+>>> CTL('<-EU true f()')
+['<-EU', ['true'], ['f']]
+>>> CTL('<-EU true f(x)')
+['<-EU', ['true'], ['f', ['x']]]
+
+# some malformed formulas
+>>> CTL('f(x,)')
+['f']
+>>> CTL('f x,y')
+['f']
+>>> CTL('f(!x)')
+['f']
+
+# test with the wildcard as a term, an atom, and an operator
+>>> CTL('_')
+['_']
+>>> CTL('_ a b')
+['_', ['a'], ['b']]
+>>> CTL('_ f(a)')
+['_', ['f', ['a']]]
+>>> CTL('f(_)')
+['f', ['_']]
+>>> CTL('f(x, _)')
+['f', ['x'], ['_']]
+>>> CTL('f(_, x)')
+['f', ['_'], ['x']]
+>>> CTL('!f(_, x)')
+['!', ['f', ['_'], ['x']]]
+
+# no ternary operator !
+>>> CTL('_ a b c')
+['_', ['a'], ['b']]
+
+# terms parsing:
+>>> CTL('f')
+['f']
+>>> CTL('f(x)')
+['f', ['x']]
+>>> CTL('f(x, y)')
+['f', ['x'], ['y']]
+>>> CTL('f( x, y)')
+['f', ['x'], ['y']]
+>>> CTL('f( x , y )')
+['f', ['x'], ['y']]
+
+# some malformed terms:
+>>> CTL('f( x , y ')
+['f']
+>>> CTL('f ( x , y ')
+['f']
+>>> CTL('f)')
+['f']
+
+# tests to get the set of freevars in a formula
+>>> from ctl import *
+>>> f = CTL('x')
+>>> f.freevars()
+set(['x'])
+>>> f = CTL('f(x)')
+>>> f.freevars()
+set(['x'])
+>>> f = CTL('f(x, y)')
+>>> f.freevars()
+set(['y', 'x'])
+>>> f = CTL('f(x, pouet)')
+>>> f.freevars()
+set(['x'])
+>>> f = CTL('!AG f(x)')
+>>> f.freevars()
+set(['x'])
+>>> f = CTL('!AG f(x, x)')
+>>> f.freevars()
+set(['x'])

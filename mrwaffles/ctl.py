@@ -1,0 +1,474 @@
+# -*- coding: utf-8 -*-
+
+from pyparsing import Literal, Combine, Group, Forward, Word, alphas, Optional, ZeroOrMore
+import sys
+import getopt
+
+class Op(str):
+    ''' Wrapper class for CTL operators '''
+    def __init__(self, val):
+        ''' val must be a string '''
+        if isinstance(val, str):
+            self.val = val
+        else:
+            raise Exception("A CTL operator must be a string")
+
+    def __str__(self):
+        return self.val
+
+    def __call__(self, *args):
+        ''' attempts to build a CTL formula with this operator as the head\n
+        args can be abstract syntax trees (nested lists), CTL instances or strings '''
+        f, g = None, None
+        if len(args) == 0:
+            return CTL(self.val)
+        if len(args) == 1 or len(args) == 2:
+            if isinstance(args[0], CTL):
+                f = args[0].ast
+            if isinstance(args[0], list):
+                f = args[0]
+            if isinstance(args[0], str):
+                f = CTL(args[0]).ast
+            
+            if len(args) == 2:
+                if isinstance(args[1], CTL):
+                    g = args[1].ast
+                if isinstance(args[1], list):
+                    g = args[1]
+                if isinstance(args[1], str):
+                    g = CTL(args[1]).ast
+                return CTL([self.val, f, g])
+
+            return CTL([self.val, f])
+
+        if len(args) > 2:
+            raise Exception("Can't build a CTL formula with three children")        
+
+Not, And, Or = map(Op, ('!', 'and', 'or'))
+EU, EX, EF, EG, EGi = map(Op, ('EU', 'EX', 'EF', 'EG', 'EGi'))
+AU, AX, AF, AG = map(Op, ('AU', 'AX', 'AF', 'AG'))
+RevEU, RevEX, RevEF, RevEG, RevEGi = map(Op, ('<-EU', '<-EX', '<-EF', '<-EG', '<-EGi'))
+RevAU, RevAX, RevAF, RevAG = map(Op, ('<-AU', '<-AX', '<-AF', '<-AG'))
+
+CTLOps = [Not, And, Or, EU, EX, EF, EG, EGi, AU, AX, AF, AG]
+RevCTLOps = [RevEU, RevEX, RevEF, RevEG, RevEGi, RevAU, RevAX, RevAF, RevAG]
+        
+class CTL:
+    ''' Wrapper class for CTL formulas'''
+    def __init__(self, val):
+        ''' val can be a string or a nested list representing the asbtract syntax tree
+            or another CTL instance (a copy will be made)'''
+        if isinstance(val, list):
+            self.ast = list(val) # use a copy of val
+        elif isinstance(val, CTL):
+            self.ast = list(val.ast)
+        else: # attempt to parse from a string
+            self.ast = CTL.parse(val)
+        # self-checks:
+        if self.ast == None or self.ast == []:
+            raise Exception("Can't create a formula with an empty abstract syntax tree: "+str(val))
+
+        self.arity = len(self.ast) - 1
+        self.op = self.ast[0]
+        if self.arity >= 1:
+            self.sub1 = CTL(self.ast[1])
+        if self.arity >= 2:
+            self.sub2 = CTL(self.ast[2])
+
+    def __lshift__(self, pattern):
+        ''' a proxy for match() '''
+        return self.match(pattern)
+
+    def __invert__(self):
+        ''' a proxy for decompose() '''
+        return self.decompose()
+
+    def __radd__(self, other):
+        ''' used for concatenation with strings '''
+        if isinstance(other, str):
+            return other + str(self.ast)
+        else:
+            raise NotImplemented()
+            
+    def __str__(self):
+        return str(self.ast)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        ''' Two CTL instances are equal if they have the same abstract syntax tree'''
+        if isinstance(other, CTL):
+            return self.ast == other.ast
+        else:
+            raise Exception("Can't compare CTL objects with %s objects" % str(type(other)))
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __iter__(self):
+        return self.ast.__iter__()
+        
+    def is_reverse(self):
+        ''' returns True if the top-level operator is a reverse operator '''
+        if self.op in RevCTLOps:
+            return True
+        else:
+            return False
+
+    def is_term(self):
+        ''' returns True if this instance is a term (it contains no CTL operators) '''
+        if self.op in CTLOps or self.op in RevCTLOps:
+            return False
+        else:
+            return True
+
+    def is_atom(self):
+        ''' returns True if self is a term with no children '''
+        if self.is_term() and self.arity == 0:
+            return True
+        else:
+            return False
+
+    def is_freevar(self):
+        ''' returns True is self is a one-char long atomic '''
+        if self.is_atom() and len(self.op) == 1:
+            return True
+        else:
+            return False
+
+    def subformulas(self):
+        ''' iterator over subformulas of this formula\n
+            example: f = And(f1, f2)\n
+            f.subformulas() will yield f1 and f2\n
+            the subformulas are CTL instances '''
+        for i in xrange(self.arity):
+            yield CTL(self.ast[i])
+
+    def subformula(self, i):
+        ''' returns the ith subformula, as a CTL instance '''
+        return CTL(self.ast[i])
+
+    def parse(string):
+        ''' returns either [atomic], [monoop, [f]] or [binop, [f1], [f2]]
+            this method is static (no need for a CTL instance) '''
+            
+        lparen = Literal('(').suppress()
+        rparen = Literal(')').suppress()
+        wildcard = Literal('_')
+        atom = Combine(Word(alphas) + Optional(Word('.0123456789'))
+            ^ 'true' ^ 'false' ^ wildcard)
+        
+        term = Forward()
+        term << (atom
+            + Optional(lparen + Group(term) 
+                + ZeroOrMore(Literal(',').suppress() + Group(term))
+            + rparen))
+
+        A = Optional('<-')+'A'
+        E = Optional('<-')+'E'
+        G, Gi, F, X, U = map(Literal, ('G', 'Gi', 'F', 'X', 'U'))
+        UnOp = wildcard ^ '!' ^ Combine(A + (G^F^X)) ^ Combine(E + (G^Gi^F^X))
+        BinOp = wildcard ^ Literal('or') ^ Literal('and') ^ Combine(A + U) ^ Combine(E + U)
+
+        formula = Forward()
+        formula << (Group(term) 
+              ^ (lparen + formula + rparen) 
+              ^ Group(UnOp + formula)
+              ^ Group(BinOp + formula + formula))
+
+        # 0 because we expect only one formula in the string
+        return formula.parseString(string).asList()[0] 
+    parse = staticmethod(parse)
+
+    # todo: rewrite this function
+    def match(self, pattern):
+        ''' pattern can be a string or a CTL instance\n
+            pattern can be a string of the form 'term', 'monoop term' or 'binop term1 term2'\n
+            the '_' token can match any single token (a term, an atomic or an operator)\n
+            two formulas will match if they have the same arity, the same operator and their subterms match
+        '''
+        return self.match_sub(pattern)[0]
+
+    def match_sub(self, pattern, subs=None, debug=0):
+        ''' same as match() but returns a tuple (boolean, dictionary)\n
+            the dictionary maps free variables to the terms they match '''
+        
+        if isinstance(pattern, str):
+            formula = CTL(pattern)
+        elif isinstance(pattern, CTL):
+            formula = pattern
+        else:
+            raise Exception('in CTL.match_sub(): pattern must be a string or a CTL instance')
+
+        # from the doc: Default parameter values are evaluated when the function definition is executed. This is especially important to understand when a default parameter is a mutable object, such as a list or a dictionary: if the function modifies the object (e.g. by appending an item to a list), the default value is in effect modified. This is generally not what was intended. A way around this is to use None as the default, and explicitly test for it in the body of the function
+        if subs is None:
+            subs = {}
+
+        if self.is_atom():
+            if not formula.is_atom():
+                return False, subs
+            if formula.op == '_' or self.op == formula.op:
+                return True, subs
+
+            # patterns with one character are considered as free variables
+            # they will match any atom
+            if formula.is_freevar(): 
+                if subs.has_key(formula.op) and subs[formula.op] != self:
+                    if debug>0:
+                        raise Exception('Clash, free variable %s already matched to %s, can not also match %s' % (formula.op, subs[formula.op], self))
+                    return False, subs
+                else:
+                    subs[formula.op] = self
+                    return True, subs
+            else:
+                return False, subs
+
+        elif self.is_term():
+            if formula.op == '_': # _ matches any term, f as well as f(x) and f(x,f(y))
+                return True, subs
+            if formula.is_freevar():
+                if subs.has_key(formula.op) and subs[formula.op] != self:
+                    if debug>0:
+                        raise Exception('Clash, free variable %s already matched to %s, can not also match %s' % (formula.op, subs[formula.op], self))
+                    return False, subs
+                else:
+                    subs[formula.op] = self
+                    return True, subs
+            elif self.op == formula.op: # same constructor, check the arity
+                if self.arity != formula.arity:
+                    return False, subs
+                for i in range(self.arity): # same arity, match the subterms
+                    if not self.subformula(i+1).match_sub(formula.subformula(i+1), subs, debug)[0]:
+                        return False, subs
+                # every subterm matched, so this is a match
+                return True, subs
+            return False, subs
+
+        else: # self is an actual formula
+            if self.op != formula.op and formula.op != '_':
+                return False, subs
+            if self.arity != formula.arity:
+                return False, subs
+
+            # same operator or wildcard and same arity, must check the subformulas
+            if not self.sub1.match_sub(formula.sub1, subs, debug)[0]:
+                return False, subs
+            if self.arity == 2 and not self.sub2.match_sub(formula.sub2, subs, debug)[0]:
+                return False, subs
+
+            # sub formulas matched, so this is a match
+            return True, subs
+        
+        raise Exception('Not supposed to reach this point with formula %s' % self)
+        
+    def decompose(self):
+        ''' if formula := atomic   -> 'atomic'\n
+                  := !formula -> '!', formula\n
+                  := or f1 f2 -> 'or', f1, f2\n
+                  ... '''
+        if self.arity == 0: # [atomic]
+            return Op(self.op)
+        if self.arity == 1: # [monoop, [f]]
+            return (Op(self.op), self.sub1)
+        if self.arity == 2: # [binop, [f], [g]]
+            return (Op(self.op), self.sub1, self.sub2)
+        raise Exception('Not supposed to reach this point, formula with arity>2 ?')
+
+    def print_ast(self, nesting=''):
+        ''' pretty printer for the abstract syntax tree '''
+        print nesting + self.op
+        for i in range(self.arity):
+            self.subformula(i+1).print_ast(nesting + '  ')
+
+    def canonic(self, noand=False):
+        ''' returns a new equivalent formula with only !, or, and, EX, EU, EG and EGi\n
+            if noand is True, 'and's will be turned in 'or's '''
+        if self.is_reverse():
+            OpEU, OpEX, OpEG, OpEGi = RevEU, RevEX, RevEG, RevEGi
+        else:
+            OpEU, OpEX, OpEG, OpEGi = EU, EX, EG, EGi
+
+        if self.is_term():
+            return CTL(self)
+
+        if (self.op == Not) or (self.op == EX)   \
+                            or (self.op == EG)   \
+                            or (self.op == EGi)   \
+                            or (self.op == RevEX) \
+                            or (self.op == RevEGi)   \
+                            or (self.op == RevEG):
+            op, f = self.decompose()
+            return op(f.canonic(noand))
+
+        if self.op == EF or self.op == RevEF:
+            op, f = self.decompose()
+            return OpEU('true', f.canonic(noand))
+
+        if self.op == AX or self.op == RevAX:
+            op, f = self.decompose()
+            return Not(OpEX(Not(f.canonic(noand))))
+
+        if self.op == AG or self.op == RevAG: 
+            op, f = self.decompose()
+            return Not(OpEU('true', Not(f.canonic(noand))))
+
+        if self.op == AF or self.op == RevAF: 
+            op, f = self.decompose()
+            return Not(OpEGi(Not(f.canonic(noand))))
+
+        if self.op == AU or self.op == RevAU:
+            op, f, g = self.decompose()
+            not_g_norm = Not(g.canonic(noand))
+            not_f_norm = Not(f.canonic(noand))
+            member1 = Not(OpEU(not_g_norm, And(not_f_norm, not_g_norm)))
+            member2 = Not(OpEG(not_g_norm))
+            return And(member1, member2).canonic(noand)
+
+        if self.op == And:
+            op, f, g = self.decompose()
+            if noand:
+                return Not(Or(Not(f.canonic(noand)), Not(g.canonic(noand))))
+            else:
+                return op(f.canonic(noand), g.canonic(noand))
+
+        if self.op == Or or self.op == EU or self.op == RevEU:
+            op, f, g = self.decompose()
+            return op(f.canonic(noand), g.canonic(noand))
+
+        if self.op == '_':
+            raise Exception('CTL.canonic(): can not call this function on a formula with a wildcard')
+            
+        raise Exception('CTL.canonic(): not supposed to reach this line')
+        
+    def simplify(self):
+        ''' returns a new equivalent formula\n
+            e.g. !!pouet -> pouet, !true -> false, or true f -> f\n
+            only minimal operators are simplified, so call canonic() first '''
+        if self.is_term():
+            return CTL(self)
+        if self.arity == 1:
+            op, f = self.decompose()
+            newf = CTL(f).simplify()
+
+            if op == Not:
+                if newf << 'true':
+                    return CTL('false')
+                if newf << 'false':
+                    return CTL('true')
+                if newf.op == Not:
+                    op2, g = ~newf
+                    return g
+
+            if (op == EX or op == EG or op == EGi or 
+                op == RevEX or op == RevEG or op == RevEGi):
+                if newf << 'true':
+                    return CTL('true')
+                if newf << 'false':
+                    return CTL('false')
+
+            return op(newf)
+
+        if self.arity == 2: # binary operators
+            op, f, g = self.decompose()
+            newf = CTL(f).simplify()
+            newg = CTL(g).simplify()
+
+            if op == Or:
+                if newf << 'true' or newg << 'true':
+                    return CTL('true')
+                if newf << 'false':
+                    return CTL(newg)
+                if newg << 'false':
+                    return CTL(newf)
+
+            if op == And:
+                if newf << 'false' or newg << 'false':
+                    return CTL('false')
+                if newf << 'true':
+                    return CTL(newg)
+                if newg << 'true':
+                    return CTL(newf)
+
+            if op == EU or op == RevEU:
+                if newg << 'true':
+                    return CTL('true')
+                if newf << 'false':
+                    return CTL('false') 
+
+            return op(newf, newg)
+        raise Exception('in CTL.simplify(): not supposed to reach this line')
+
+    def freevars(self): 
+        ''' returns the set of free variables in this formula '''
+        return self.atoms(only_freevars=True)
+
+    def atoms(self, only_freevars=False):
+        ''' returns the set of atoms in this formula '''
+        s = set([])
+        for x in self.yield_atoms():
+            if only_freevars:
+                if x.is_freevar():
+                    s |= set(x)
+            elif x.is_atom():
+                s |= set(x)
+        return s
+
+    def yield_atoms(self):
+        ''' an iterator over the set of atoms in this formula '''
+        if self.is_atom():
+            yield self
+        else:
+            for i in range(self.arity):
+                for x in CTL(self.ast[i+1]).yield_atoms():
+                    yield x
+
+    def substitute(self, mapping):
+        ''' returns the equivalent CTL formula with the variables in mapping replaced with the associated term '''
+        head = self.op
+        if self.is_freevar():
+            if mapping.has_key(head):
+                return CTL(mapping[head])
+            else:
+                return self
+        else:
+            newast = list(self.ast)
+            for i in range(self.arity):
+                newast[i+1] = CTL(self.ast[i+1]).substitute(mapping)
+            return CTL(newast)
+        
+def main():
+    '''Usage: python ctl.py formula'''
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
+    except getopt.error, msg:
+        print __doc__
+        print msg
+        print "for help use --help"
+        sys.exit(2)
+        
+    # process options
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            print __doc__
+            sys.exit(1)
+
+    # process arguments
+    if len(args) != 1:
+        print main.__doc__
+        print "for help use --help"
+        sys.exit(2)
+
+    f = CTL(args[0])
+    print 'internal representation: ' + f
+    print 'abstract syntax tree:'
+    f.print_ast()
+    n = f.canonic()
+    print 'normal form: ' + n
+    print 'abstract syntax tree of the normal form:'
+    n.print_ast()
+    print 'simplified version: '
+    f.simplify().print_ast()
+    
+if __name__ == "__main__":
+    main()

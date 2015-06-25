@@ -1,0 +1,110 @@
+>>> from ctl import *
+
+# matching atomics
+>>> atomic = CTL('f')
+>>> atomic << '_'
+True
+>>> atomic << 'f'
+True
+>>> atomic << 'x'
+True
+>>> atomic << 'pouet'
+False
+
+# matching terms
+>>> term = CTL('f(x)')
+>>> term << '_'
+True
+>>> term << 'f(_)'
+True
+>>> term << 'f(x)'
+True
+>>> term << 'f(y)'
+True
+
+# this matches because there is no difference between '_ pouet' and '_(pouet)'
+# is this a problem ?
+>>> term << '_ pouet'
+True
+
+>>> term << 'f(pouet)'
+False
+>>> term << 'f(a, b)'
+False
+>>> term << 'f(x, b)'
+False
+>>> term << 'f(x, _)'
+False
+
+>>> nestedterm = CTL('f(x, g(y,z))')
+>>> nestedterm
+['f', ['x'], ['g', ['y'], ['z']]]
+>>> nestedterm << '_'
+True
+
+# now free variables can match terms
+>>> nestedterm << 'f(x, y)'
+True
+>>> nestedterm << 'f(x, _)'
+True
+>>> nestedterm << 'f(_, _)'
+True
+>>> nestedterm << 'f(a, g(b, c))'
+True
+>>> nestedterm << 'f(a, g(_, _))'
+True
+>>> nestedterm = CTL('f(x, g(spam, eggs))')
+>>> nestedterm << 'f(a, g(b, c))'
+True
+>>> nestedterm << 'f(a, g(spam, _))'
+True
+>>> nestedterm << 'f(a, g(spam, pouet))'
+False
+
+# matching with substitutions:
+>>> f = CTL('pouet')
+>>> f.match_sub('x')
+(True, {'x': ['pouet']})
+>>> f.match_sub('_')
+(True, {})
+>>> f.match_sub('pouet')
+(True, {})
+>>> f.match_sub('abc')
+(False, {})
+>>> f.match_sub('f(gnout)')
+(False, {})
+>>> f.match_sub('f(pouet)')
+(False, {})
+
+>>> f = CTL('f(tata, toto)')
+>>> f.match_sub('f(x,x)')
+(False, {'x': ['tata']})
+
+>>> f.match_sub('f(x,x)', debug=1)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "ctl.py", line 262, in match_sub
+    if not self.subformula(i+1).match_sub(formula.subformula(i+1), subs, debug)[0]:
+  File "ctl.py", line 239, in match_sub
+    raise Exception('Clash, free variable %s already matched to %s, can not also match %s' % (formula.op, subs[formula.op], self))
+Exception: Clash, free variable x already matched to ['tata'], can not also match ['toto']
+
+>>> f.match_sub('f(x,y)')[0]
+True
+>>> sorted(f.match_sub('f(x,y)')[1].items())
+[('x', ['tata']), ('y', ['toto'])]
+
+# need to "clean" the unfinished substitution ?
+>>> f.match_sub('f(y,g(z))')
+(False, {'y': ['tata']})
+
+>>> f.match_sub('f(g(z), y)')
+(False, {})
+
+>>> f.match_sub('f(y, _)')
+(True, {'y': ['tata']})
+
+>>> f.match_sub('f(_, y)')
+(True, {'y': ['toto']})
+
+

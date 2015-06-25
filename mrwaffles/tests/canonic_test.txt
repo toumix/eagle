@@ -1,0 +1,63 @@
+>>> from ctl import *
+
+# basic rules
+>>> RevEX('f').canonic() == RevEX('f')
+True
+>>> RevEG('f').canonic() == RevEG('f')
+True
+>>> EG('f').canonic() == EG('f')
+True
+>>> EX('f').canonic() == EX('f')
+True
+>>> Not('f').canonic() == Not('f')
+True
+
+# same rules with a deeper level
+>>> f = CTL('AX g')
+>>> Not(f).canonic() == Not(f.canonic())
+True
+>>> EX(f).canonic() == EX(f.canonic())
+True
+>>> EG(f).canonic() == EG(f.canonic())
+True
+>>> RevEX(f).canonic() == RevEX(f.canonic())
+True
+>>> RevEG(f).canonic() == RevEG(f.canonic())
+True
+
+# more advanced rules
+>>> EF(f)
+['EF', ['AX', ['g']]]
+>>> RevEF(f)
+['<-EF', ['AX', ['g']]]
+>>> EF(f).canonic()
+['EU', ['true'], ['!', ['EX', ['!', ['g']]]]]
+>>> RevEF(f).canonic()
+['<-EU', ['true'], ['!', ['EX', ['!', ['g']]]]]
+
+>>> AF('pouet').canonic()
+['!', ['EG', ['!', ['pouet']]]]
+>>> RevAF('pouet').canonic()
+['!', ['<-EG', ['!', ['pouet']]]]
+
+>>> f = CTL('<-AG pouet')
+>>> f.canonic()
+['!', ['<-EU', ['true'], ['!', ['pouet']]]]
+>>> f = CTL('<-AG AG pouet')
+>>> f.canonic()
+['!', ['<-EU', ['true'], ['!', ['!', ['EU', ['true'], ['!', ['pouet']]]]]]]
+>>> f.canonic().simplify()
+['!', ['<-EU', ['true'], ['EU', ['true'], ['!', ['pouet']]]]]
+
+>>> f = CTL('<-AU f(a) g(b)')
+>>> f.canonic()
+['and', ['!', ['<-EU', ['!', ['g', ['b']]], ['and', ['!', ['f', ['a']]], ['!', ['g', ['b']]]]]], ['!', ['<-EG', ['!', ['g', ['b']]]]]]
+>>> f.canonic().simplify()
+['and', ['!', ['<-EU', ['!', ['g', ['b']]], ['and', ['!', ['f', ['a']]], ['!', ['g', ['b']]]]]], ['!', ['<-EG', ['!', ['g', ['b']]]]]]
+>>> f = CTL('<-AU AU f(a) g(b) pouet')
+>>> f.canonic()
+['and', ['!', ['<-EU', ['!', ['pouet']], ['and', ['!', ['and', ['!', ['EU', ['!', ['g', ['b']]], ['and', ['!', ['f', ['a']]], ['!', ['g', ['b']]]]]], ['!', ['EG', ['!', ['g', ['b']]]]]]], ['!', ['pouet']]]]], ['!', ['<-EG', ['!', ['pouet']]]]]
+
+>>> RevEU('f', 'g').canonic()
+['<-EU', ['f'], ['g']]
+

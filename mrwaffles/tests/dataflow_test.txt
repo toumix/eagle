@@ -1,0 +1,26 @@
+>>> from ctl import *
+>>> from checker import *
+>>> g = PredicatedGraph()
+>>> g.add_edge(1,2)
+>>> g.add_edge(3,2) # 3 won't be reachable
+>>> g.add_edge(2,4)
+>>> g.add_edge(4,2) # a loop, for the fun
+>>> g.add_edge(4,5)
+>>> g.add_edge(5,6)
+>>> g.add_edge(5,7) # a double branch, also for the fun
+>>> g.add_edge(6,8)
+>>> g.add_edge(7,8)
+
+>>> g.add_predicate(1, 'def(eax)')
+>>> g.add_predicate(2, 'def(ebx)')
+>>> g.add_predicate(3, 'use(ebx)') # this use is unreachable
+>>> g.add_predicate(4, 'use(pouet)')
+>>> g.add_predicate(5, 'def(eax)') # eax overwrite after the loop
+>>> g.add_predicate(6, 'def(ebx)') # ebx overwrite in each branch
+>>> g.add_predicate(7, 'def(ebx)') # ebx overwrite in each branch
+>>> g.add_predicate(8, 'use(ebx)') # make the second defs live
+>>> g.add_predicate(8, 'use(eax)') # make the second defs live
+
+>>> g.check_with_freevars('and def(x) AX !EU !def(x) use(x)')
+set([1, 2])
+
