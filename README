@@ -5,7 +5,9 @@ What is it?
 
 This tool was developed as part of Alexis TOUMI's bachelor project:
 "Equilibrium Checking in Reactive Modules Games"
-Department of Computer Science, University of Oxford.
+(Department of Computer Science, University of Oxford).
+
+For the complete report of the project, see report.pdf
 
 RMG (for Reactive Modules Games) is a framework for modelling concurrent 
 multi-agent systems in which each agent is assumed to behave strategically
@@ -109,5 +111,8 @@ Example
 
 COPYRIGHT
 
-http://www.gnu.org/licenses/gpl-2.0.html
+Mr. Waffles is distributed under the terms of the GPLv2.
+(http://www.gnu.org/licenses/gpl-2.0.html)
+
+CTLSAT is available freely on github.
 https://github.com/nicolaprezza/CTLSAT
