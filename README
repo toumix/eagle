@@ -29,7 +29,6 @@ Instructions
 This tool requires:
 
 Python (>= 2.6) (https://www.python.org/downloads/)
-networkx (>= 1.9.1) (https://networkx.github.io/)
 
 To run the tool, simply use the following command:
 
@@ -101,7 +100,7 @@ Example
 	}],
 }
 
->>> $ python main.py toggle
+>>> $ python main.py eg/toggle
 >>> Player 0 does not get its goal satisfied.
 >>> 
 >>> It could change its strategy to get its goal satisfied:
@@ -112,8 +111,11 @@ Example
 
 COPYRIGHT
 
-Mr. Waffles is distributed under the terms of the GPLv2.
+NetworkX is distributed with the BSD license.
+(https://networkx.github.io/documentation/latest/reference/legal.html)
+
+Mr. Waffles is distributed with the GPLv2 license.
 (http://www.gnu.org/licenses/gpl-2.0.html)
 
 CTLSAT is available freely on github.
-https://github.com/nicolaprezza/CTLSAT
+(https://github.com/nicolaprezza/CTLSAT)
