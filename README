@@ -26,10 +26,7 @@ Question: Is S a Nash equilibrium for G?
 Instructions
 ------------
 
-This tool requires:
-
-Python (>= 2.6) (https://www.python.org/downloads/)
-
+This tool requires Python (>= 2.6) (https://www.python.org/downloads/)
 To run the tool, simply use the following command:
 
 >>> python main.py inputf
